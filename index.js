@@ -1,6 +1,8 @@
 const express = require("express");
 const app = express();
 const { open } = require("sqlite");
+const jwt = require("jsonwebtoken");
+
 const cors = require("cors");
 const path = require("path");
 const upload = require("./upload");
@@ -10,6 +12,7 @@ const fs = require("fs");
 const sqlite3 = require("sqlite3").verbose();
 const db = new sqlite3.Database("./oralDb.db", sqlite3.OPEN_READWRITE);
 const PORT = process.env.PORT || 5000;
+const JWT_SECRET = "your_jwt_secret";
 
 let myDataBase;
 
@@ -47,14 +50,16 @@ cloudinary.config({
 // db.run(sql);
 
 // db.run(`
-//   CREATE TABLE IF NOT EXISTS patients (
+//  CREATE TABLE IF NOT EXISTS patients (
 //     id INTEGER PRIMARY KEY AUTOINCREMENT,
-//     patientId TEXT UNIQUE,
+//     patientId TEXT NOT NULL,
 //     patientName TEXT NOT NULL,
-//     scanType TEXT,
-//     region TEXT,
-//     scanImage TEXT
-//   )
+//     scanType TEXT NOT NULL,
+//     region TEXT NOT NULL,
+//     scanImage TEXT,
+//     uploadDate TEXT DEFAULT CURRENT_TIMESTAMP
+// );
+
 // `);
 
 app.get("/users", async (req, res) => {
@@ -77,7 +82,6 @@ app.post("/login", async (req, res) => {
       throw new Error("Fill all the fields");
     }
 
-    // parameterized query
     const query = `SELECT * FROM users WHERE email = ? AND password = ?`;
     const userData = await myDataBase.get(query, [email, password]);
 
@@ -85,10 +89,20 @@ app.post("/login", async (req, res) => {
       throw new Error("Invalid Email or Password");
     }
 
+    const token = jwt.sign(
+      {
+        id: userData.id,
+        email: userData.email,
+        role: userData.role || "user",
+      },
+      JWT_SECRET
+    );
+
     res.json({
       message: "Login successful",
       status: 200,
       data: userData,
+      token, // token bhi send kar rahe hain
     });
   } catch (e) {
     console.log(e.message);
@@ -99,10 +113,9 @@ app.post("/login", async (req, res) => {
 app.post("/patients", upload.single("scanImage"), (req, res) => {
   const { patientId, patientName, region } = req.body;
 
-  // Cloudinary storage ke baad file ka url milta hai req.file.path me
   const scanImage = req.file?.path || req.file?.secure_url || null;
 
-  console.log("Cloudinary File:", req.file); // isko ek baar print karo dekhne ke liye
+  console.log("Cloudinary File:", req.file);
 
   const sql = `INSERT INTO patients (patientId, patientName, scanType, region, scanImage)
                VALUES (?, ?, 'RGB', ?, ?)`;
@@ -114,7 +127,7 @@ app.post("/patients", upload.single("scanImage"), (req, res) => {
     res.status(201).json({
       message: "Patient added successfully",
       id: this.lastID,
-      file: scanImage, // Cloudinary ka URL return karega
+      file: scanImage,
     });
   });
 });
