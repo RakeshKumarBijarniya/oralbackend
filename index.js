@@ -9,6 +9,7 @@ const cloudinary = require("cloudinary").v2;
 const fs = require("fs");
 const sqlite3 = require("sqlite3").verbose();
 const db = new sqlite3.Database("./oralDb.db", sqlite3.OPEN_READWRITE);
+const PORT = process.env.PORT || 5000;
 
 let myDataBase;
 
@@ -18,7 +19,7 @@ const initializeDbAndServer = async () => {
       filename: dbPath,
       driver: sqlite3.Database,
     });
-    app.listen(5000, () => console.log("Initialize successfully"));
+    app.listen(PORT, () => console.log(`Server running on ${PORT}`));
   } catch (e) {
     console.log(`DB Error ${e.message}`);
     process.exit(1);
